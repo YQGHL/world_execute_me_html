@@ -1009,66 +1009,46 @@
 
         function varGet(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
-        // 新增：播放结束后自动重置并重启（可修改 pauseMs 控制重启前等待时间）
-        const AUTO_RESTART = true;
-        const RESTART_PAUSE_MS = 3000;
+        // 新增：播放结束后自动重置并重启（改为显示 overlay，等待用户点击重新开始）
+        song.addEventListener('ended', () => {
+            // 取消 RAF
+            if (typeof animationFrameId !== 'undefined') cancelAnimationFrame(animationFrameId);
 
-        if (AUTO_RESTART) {
-            song.addEventListener('ended', () => {
-                // 等待一点时间让用户看到结尾画面，然后重置
-                setTimeout(() => {
-                    // 取消 RAF
-                    if (typeof animationFrameId !== 'undefined') cancelAnimationFrame(animationFrameId);
+            // 清理二进制雨 interval（如果在运行）
+            if (typeof binaryRainInterval !== 'undefined' && binaryRainInterval !== null) {
+                clearInterval(binaryRainInterval);
+                binaryRainInterval = null;
+            }
 
-                    // 清理二进制雨 interval（如果在运行）
-                    if (typeof binaryRainInterval !== 'undefined' && binaryRainInterval !== null) {
-                        clearInterval(binaryRainInterval);
-                        binaryRainInterval = null;
-                    }
+            // 清理 showTrappedInLove 的定时器（如果存在）
+            if (loveCursorInterval) {
+                clearInterval(loveCursorInterval);
+                loveCursorInterval = null;
+            }
 
-                    // 清理 showTrappedInLove 的定时器（如果存在）
-                    if (loveCursorInterval) {
-                        clearInterval(loveCursorInterval);
-                        loveCursorInterval = null;
-                    }
+            // 移除可能残留的 canvas / bsod / 特效节点
+            const bc = document.getElementById('binary-canvas');
+            if (bc) bc.remove();
+            const bsod = document.getElementById('bsod-screen');
+            if (bsod) bsod.remove();
 
-                    // 移除可能残留的 canvas / bsod / 特效节点
-                    const bc = document.getElementById('binary-canvas');
-                    if (bc) bc.remove();
-                    const bsod = document.getElementById('bsod-screen');
-                    if (bsod) bsod.remove();
+            // 清理视觉和形状
+            visuals.innerHTML = '';
+            clearShapes();
 
-                    // 清理视觉和形状
-                    visuals.innerHTML = '';
-                    clearShapes();
+            // 重置时间线指针与样式
+            currentIndex = 0;
+            document.documentElement.style.removeProperty('--text-color');
+            container.className = ''; // 移除临时 class（如 ac-mode/dc-mode/blind 等）
 
-                    // 重置时间线指针
-                    currentIndex = 0;
+            // 重置音频进度
+            try { song.currentTime = 0; } catch (e) { console.warn('无法重置音频进度', e); }
 
-                    // 重置样式状态
-                    document.documentElement.style.removeProperty('--text-color');
-                    container.className = ''; // 移除临时 class（如 ac-mode/dc-mode/blind 等）
-
-                    // 重置音频并重新开始体验
-                    try {
-                        song.currentTime = 0;
-                        song.play().then(() => {
-                            // 重新开始 RAF 更新循环
-                            animationFrameId = requestAnimationFrame(update);
-                        }).catch(err => {
-                            console.error('自动重启时无法播放音频:', err);
-                            // 如果播放失败，显示 overlay 提示让用户手动重试
-                            overlay.innerHTML = `<span>world.execute(me);</span><span>点击以重新开始<span id="overlay-cursor">_</span></span>`;
-                            overlay.classList.remove('hidden');
-                            overlay.addEventListener('click', startExperience, { once: true });
-                        });
-                    } catch (e) {
-                        console.error('重置时发生错误:', e);
-                        overlay.classList.remove('hidden');
-                    }
-                }, RESTART_PAUSE_MS);
-            });
-        }
+            // 恢复并显示 overlay，等待用户点击
+            overlay.innerHTML = '<span>world.execute(me);</span><span>Click to run<span id="overlay-cursor">_</span></span>';
+            overlay.classList.remove('hidden');
+            overlay.addEventListener('click', startExperience, { once: true });
+        });
     </script>
 </body>
 </html>
